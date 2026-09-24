@@ -1,0 +1,3 @@
+task,rsmf,thermo,de_novo
+save_intermediate,1,0,0
+save_y_pred,0,1,0
