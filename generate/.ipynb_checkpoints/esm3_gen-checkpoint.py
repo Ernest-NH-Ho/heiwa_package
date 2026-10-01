@@ -115,7 +115,7 @@ def generate_proteins(
             cleave=cleave, 
             debug_path=debug_path, 
         )
-        # print("b", type(protein))
+    assert protein
 
     if task=="gen_de_novo" and seq_prompt is None:
         seq_prompt = convert_idx_to_prompt(

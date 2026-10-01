@@ -1,4 +1,6 @@
 import os
+from copy import deepcopy
+from heiwa._validation import single_source, nonnegative_int, prompt_options
 import torch
 import torch.nn as  nn
 import pickle
@@ -70,7 +72,7 @@ def check_generation_success(outPath:str|list[str]):
     elif isinstance(outPath, list):
         with open(f"./generation_report.txt", "a+") as file:
             for path in outPath:
-                if os.path.exists(outPath):
+                if os.path.exists(path):
                     file.write(f"Generation of {path} successful.\n")
                 else:
                     file.write(f"Generation of {path} failed.\n")
@@ -95,7 +97,8 @@ def generate_proteins(
     assert task in ("gen_embed", "gen_de_novo")
     assert esm3_model
     assert out_file_name
-    stream = torch.cuda.Stream(device="cuda")
+    single_source(inFile, protein)
+    nonnegative_int(cleave, "cleave")
     if heiwa_model:
         assert heiwa_orthogonalizer
         
@@ -109,13 +112,23 @@ def generate_proteins(
         real_tracks = tracks
         
 
-    if inFile:
+    if inFile is not None:
         protein = read_file(
             filename=inFile, 
             cleave=cleave, 
             debug_path=debug_path, 
         )
-        # print("b", type(protein))
+    else:
+        protein = deepcopy(protein)
+        if cleave:
+            for field in ("sequence", "coordinates", "secondary_structure", "sasa", "plddt"):
+                value = getattr(protein, field, None)
+                if value is not None:
+                    setattr(protein, field, value[cleave:])
+            if getattr(protein, "function_annotations", None):
+                raise ValueError("Cleavage of protein function annotations is not supported")
+    if protein is None or not protein.sequence:
+        raise ValueError("Input must contain a nonempty protein sequence after cleavage")
 
     if task=="gen_de_novo" and seq_prompt is None:
         seq_prompt = convert_idx_to_prompt(
@@ -127,10 +140,13 @@ def generate_proteins(
         )
         # print(seq_prompt)
 
+    if task == "gen_de_novo":
+        if len(seq_prompt) != len(protein.sequence):
+            raise ValueError("seq_prompt length must match the protein after cleavage")
     hw_setting.switch_on_gpu_rs()
     
-    if out_file_name.count('.') > 0:
-        out_file_name = out_file_name[:out_file_name.rfind('.')]
+    if out_file_name.endswith(('.pt', '.pdb', '.pkl')):
+        out_file_name = out_file_name.rsplit('.', 1)[0]
     if not os.path.exists(f"{folder_out}/{out_file_name}.{out_file_type}"):
         protein = esm3_generation(
             real_tracks=real_tracks, 

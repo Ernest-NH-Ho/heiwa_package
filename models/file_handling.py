@@ -25,3 +25,14 @@ def decompress(filepath, num_cpu=8):
         compressed_path = f"{filepath}.gz"
         if os.path.exists(compressed_path):
             os.remove(compressed_path)
+
+
+def load_weights(path, device):
+    """Read packaged weights without modifying the installation or requiring pigz."""
+    import gzip
+    import torch
+    path = Path(path)
+    if path.exists():
+        return torch.load(path, map_location=device, weights_only=True)
+    with gzip.open(str(path) + ".gz", "rb") as stream:
+        return torch.load(stream, map_location=device, weights_only=True)

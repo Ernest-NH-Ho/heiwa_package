@@ -92,7 +92,7 @@ def readPDB(
         # print(start_idx, end_idx, outputs["sequence"])
         outputs["sequence"] = "".join(outputs["sequence"][start_idx:end_idx])
         protein = ESMProtein(
-            coordinates=torch.from_numpy(outputs['coordinates'][:len(outputs["sequence"]), ...]), 
+            coordinates=torch.from_numpy(outputs['coordinates'][start_idx:end_idx, ...]), 
             sequence=outputs["sequence"]
         )
         # print("a", type(protein))
@@ -103,7 +103,7 @@ def readPDB(
                 
             with open(debug_path, 'wb') as file:
                 filename_base=filename[filename.rfind('/')+1:filename.rfind('.')]
-                pickle.dump(protein, f"{debug_path}/pdb_output_from_{filename_base}.pkl")
+                pickle.dump(protein, file)
             
         return protein
         
@@ -117,3 +117,4 @@ def readPDB(
             out.write(f"{e}\n")
             traceback.print_exc(file=out)  # 
             out.write(f"\n***************\n\n") 
+        raise

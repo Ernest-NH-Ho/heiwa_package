@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Dict
 from heiwa.models.basic_layers import Swish, SwiGLU_Simplified
-from heiwa.models.file_handling import compress, decompress
+from heiwa.models.file_handling import load_weights
 from heiwa.models.data_containers import ModelOutput
 from heiwa.utils import asset_path
 
@@ -18,13 +18,10 @@ class HEIWA_Hybridizer(nn.Module):
 
     def _load_default(self, num_cpu, device):
         path = asset_path.joinpath(f"HEIWA_Hybridizer_epoch_final_model.pth")
-        decompress(f"{path}", num_cpu=num_cpu)
-        state_dict = torch.load(path, 
-                                map_location=device, weights_only=True)
+        state_dict = load_weights(path, device)
         incompatible = self.load_state_dict(state_dict, strict=False)
         print(f"Missing keys: {incompatible.missing_keys}")
         print(f"Unexpected keys: {incompatible.unexpected_keys}")
-        compress(f"{path}", num_cpu=num_cpu)
         
     def forward(self, x_imp=None, tim_gate=0, sasa_gate=1):
         """ RMSNorm should be done by the part that produces the x_imp and x_exp """

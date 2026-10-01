@@ -1,4 +1,6 @@
 import torch.nn as nn
+from pathlib import Path
+from heiwa._validation import single_source, nonnegative_int, prompt_options
 from esm.sdk.api import ESMProtein
 from heiwa.generate.esm3_gen import generate_proteins
 from heiwa.utils import ensure_dirs
@@ -13,19 +15,17 @@ def gen_embed(
     debug_path:str="", 
 ):
     """1 protein at once"""
-    if outPath.count('/') > 0:
-        sep = outPath.rfind('/')
-        folder_out = outPath[:sep]
-        outPath  = outPath[sep+1:]
-    else:
-        folder_out = "."
+    single_source(inFile, protein)
+    nonnegative_int(cleave, "cleave")
+    output = Path(outPath)
+    folder_out, outPath = str(output.parent), output.name
     ensure_dirs(folder_out)
 
-    if inFile:
+    if inFile is not None:
         generate_proteins(
             task="gen_embed", 
             hw_setting=hw_setting, 
-            inFile=inFile, 
+            inFile=str(inFile), 
             out_file_name=outPath, 
             cleave=cleave, 
             esm3_model=esm3_model, 
@@ -33,7 +33,6 @@ def gen_embed(
             debug_path=debug_path, 
         )
     else:
-        assert protein
         generate_proteins(
             task="gen_embed", 
             hw_setting=hw_setting, 
@@ -60,26 +59,26 @@ def de_novo(
     debug_path:str="", 
 ):
     """1 protein at once"""
-    assert not (seq_prompt is not None and (crit_resi is not None or idx_style))
+    prompt_options(seq_prompt, crit_resi, idx_style)
+    # if heiwa_model is None or heiwa_orthogonalizer is None:
+    #     raise ValueError("de_novo requires heiwa_model and heiwa_orthogonalizer")
     
-    if outPath.count('/') > 0:
-        sep = outPath.rfind('/')
-        folder_out = outPath[:sep]
-        outPath  = outPath[sep+1:]
-    else:
-        folder_out = "."
+    single_source(inFile, protein)
+    nonnegative_int(cleave, "cleave")
+    output = Path(outPath)
+    folder_out, outPath = str(output.parent), output.name
     ensure_dirs(folder_out)
 
     if heiwa_model:
         heiwa_model.move_to(hw_setting.run_device)
-    if heiwa_orthogonalizer:
+        assert heiwa_orthogonalizer
         heiwa_orthogonalizer.move_to(hw_setting.run_device)
 
-    if inFile:
+    if inFile is not None:
         generate_proteins(
             task="gen_de_novo", 
             hw_setting=hw_setting, 
-            inFile=inFile, 
+            inFile=str(inFile), 
             cleave=cleave, 
             seq_prompt=seq_prompt, 
             crit_resi=crit_resi, 
@@ -92,7 +91,6 @@ def de_novo(
             debug_path=debug_path, 
         )
     else:
-        assert protein
         generate_proteins(
             task="gen_de_novo", 
             hw_setting=hw_setting, 

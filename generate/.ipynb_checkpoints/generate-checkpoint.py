@@ -72,7 +72,7 @@ def de_novo(
 
     if heiwa_model:
         heiwa_model.move_to(hw_setting.run_device)
-    if heiwa_orthogonalizer:
+        assert heiwa_orthogonalizer
         heiwa_orthogonalizer.move_to(hw_setting.run_device)
 
     if inFile:

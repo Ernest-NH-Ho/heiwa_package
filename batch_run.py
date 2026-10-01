@@ -13,13 +13,13 @@ def batch_run(
     thermo_model=None, 
     out_folder=".", 
 ):
+    hw_setting = hw_setting if hw_setting is not None else Hardware_Setting()
     # assert target.lower() in ("rmsf", "thermo")
     
     # ========= Prepare dataset here =========
     # m = None
     # l = None
     if isinstance(x, list):
-        print("hi")
         dataset = concat_tensors_and_pad(
             embeds=x, 
             # create_l=target.lower()=="thermo", 
@@ -29,17 +29,15 @@ def batch_run(
         # print("x_unorthogonalized", dataset["X"].size(), dataset["X"])
         # print("l", l.size(), l)
     else:
-        print("hi single x")
         x = ensure_3d_tensor(x=x)
         # if target.lower()=="thermo":
         #     print(f"Task is definitely thermo")
         l = torch.tensor(
-            [x.size(1)], 
+            [x.size(1)] * x.size(0), 
             dtype=torch.float32, 
             device='cpu'
         ) 
         dataset={"X":x, "L":l}
-        print("x_unorthogonalized", x.size(), x)
     print("dataset", dataset.keys())
 
     # ========= Prepare models, hardware, epoch_runner =========

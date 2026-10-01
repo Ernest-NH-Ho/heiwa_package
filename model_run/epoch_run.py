@@ -18,7 +18,6 @@ class EpochRunner:
         #     package_path.joinpath("model_run", "epoch_config.csv"), 
         #     header=0, index_col='task'
         # ).astype(bool)
-        torch.set_grad_enabled(False)
         print("Epoch runner initialized")
     
     def move_batch_2_device(self, batch, device):
@@ -32,7 +31,7 @@ class EpochRunner:
         
     def forward_pass(self, heiwa_model, heiwa_orthogonalizer, thermo_model, batch_device):
         # Forward pass
-        with torch.amp.autocast('cuda'):
+        with torch.no_grad(), torch.amp.autocast('cuda', enabled=batch_device['model_input']['X'].is_cuda):
             batch_device['model_input']["X"] = heiwa_orthogonalizer.forward(batch_device['model_input']["X"])
             heiwa_output = heiwa_model(x=batch_device['model_input']["X"])
             model_output = thermo_model(
@@ -73,6 +72,9 @@ class EpochRunner:
         # Move model to device
         heiwa_model.move_to(device)
         thermo_model.move_to(device)
+        heiwa_orthogonalizer.move_to(device)
+        heiwa_model.eval()
+        thermo_model.eval()
 
         # Progress bar
         print(f"Creating tqdm pbar and batch_data accumulator")

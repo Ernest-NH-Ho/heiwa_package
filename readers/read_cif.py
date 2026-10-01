@@ -41,7 +41,7 @@ def readCIF(
             block["_atom_site.group_PDB"], 
             block["_atom_site.label_atom_id"], 
             block["_atom_site.label_comp_id"], 
-            block["_atom_site.label_entity_id"], 
+            block["_atom_site.label_asym_id"], 
             block["_atom_site.label_seq_id"], 
             block["_atom_site.Cartn_x"], 
             block["_atom_site.Cartn_y"], 
@@ -58,11 +58,11 @@ def readCIF(
                     outputs['coordinates'][resi-min_resi, 0, :] = float(x), float(y), float(z)
                     outputs['coordinates'][resi-min_resi, 1, :] = float(x), float(y), float(z)
                     outputs['coordinates'][resi-min_resi, 2, :] = float(x), float(y), float(z)
-                    end_idx = max(end_idx, resi)
+                    end_idx = max(end_idx, resi - min_resi + 1)
                     
-        outputs["sequence"] = "".join(outputs["sequence"][cleave + 1 - min_resi:end_idx])
+        outputs["sequence"] = "".join(outputs["sequence"][cleave:end_idx])
         protein = ESMProtein(
-            coordinates=torch.from_numpy(outputs['coordinates'][cleave + 1 - min_resi:end_idx, ...]), 
+            coordinates=torch.from_numpy(outputs['coordinates'][cleave:end_idx, ...]), 
             sequence=outputs["sequence"]
         )
 
@@ -73,7 +73,7 @@ def readCIF(
         if debug_path:
             with open(debug_path, 'wb') as file:
                 filename_base=filename[filename.rfind('/')+1:filename.rfind('.')]
-                pickle.dump(protein, f"{debug_path}/cif_output_from_{filename_base}.pkl")
+                pickle.dump(protein, file)
         
         return protein
         
@@ -88,3 +88,4 @@ def readCIF(
             traceback.print_exc(file=out)  # 
             out.write(f"\n***************\n\n")
     
+        raise
