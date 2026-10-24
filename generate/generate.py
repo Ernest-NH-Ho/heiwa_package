@@ -60,8 +60,8 @@ def de_novo(
 ):
     """1 protein at once"""
     prompt_options(seq_prompt, crit_resi, idx_style)
-    # if heiwa_model is None or heiwa_orthogonalizer is None:
-    #     raise ValueError("de_novo requires heiwa_model and heiwa_orthogonalizer")
+    assert (heiwa_model is None) == (heiwa_orthogonalizer is None), \
+        "heiwa_model and heiwa_orthogonalizer must both be supplied or both be None"
     
     single_source(inFile, protein)
     nonnegative_int(cleave, "cleave")
@@ -71,7 +71,7 @@ def de_novo(
 
     if heiwa_model:
         heiwa_model.move_to(hw_setting.run_device)
-        assert heiwa_orthogonalizer
+        assert heiwa_orthogonalizer is not None
         heiwa_orthogonalizer.move_to(hw_setting.run_device)
 
     if inFile is not None:

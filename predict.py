@@ -1,5 +1,8 @@
 """Prediction from either prepared tensors or embedding files."""
 from os import PathLike, fspath
+from pathlib import Path
+from heiwa._validation import nonnegative_int
+from heiwa.generate.generate import gen_embed
 import torch
 from heiwa.loaders.tensor_loader import load_single_tensor
 from heiwa.batch_run import batch_run
@@ -15,7 +18,7 @@ def _embedding(tensor):
     return tensor
 
 
-def predict(heiwa_model, heiwa_orthogonalizer, thermo_model, x=None,
+def predict_thermo(heiwa_model, heiwa_orthogonalizer, thermo_model, x=None,
             in_path=None, out_folder=".", hw_setting=None,
             exclude_cls=None, exclude_eos=None):
     """Choose x OR in_path. File metadata must be None with x.
@@ -72,3 +75,79 @@ def predict(heiwa_model, heiwa_orthogonalizer, thermo_model, x=None,
               thermo_model=thermo_model, hw_setting=hw_setting, out_folder=out_folder)
     if paths is not None:
         record_input_lst(inFiles=paths, out_folder=out_folder)
+
+
+def predict(heiwa_model, heiwa_orthogonalizer, thermo_model, in_path,
+            emb_path, esm3_model=None, cleave=0, out_folder=".",
+            hw_setting=None, exclude_cls=True, exclude_eos=True):
+    """Predict from .pdb, .cif or .dssp structures using cached .pt embeddings.
+
+    Supply one structure/cache path pair or equally sized lists of paths.
+    cleave and exclusion flags may be scalars shared by all inputs or lists
+    with one value per input. Cleavage applies only during embedding generation.
+    Existing caches must correspond to the structure and requested cleavage;
+    they are reused unchanged. Generated ESM embeddings include CLS/EOS, so
+    both exclusion flags default to True. For already-trimmed caches, set them
+    to False. esm3_model is required only if an embedding cache is missing.
+    """
+    single = isinstance(in_path, (str, PathLike))
+    if single:
+        structures = [in_path]
+        if not isinstance(emb_path, (str, PathLike)):
+            raise ValueError("A single structure requires a single emb_path")
+        embeddings = [emb_path]
+    elif isinstance(in_path, (list, tuple)) and in_path:
+        structures = list(in_path)
+        if not isinstance(emb_path, (list, tuple)) or len(emb_path) != len(structures):
+            raise ValueError("emb_path must have one path per structure")
+        embeddings = list(emb_path)
+    else:
+        raise ValueError("in_path must be a structure path or a nonempty list of structure paths")
+
+    def per_input(value, name):
+        if isinstance(value, (list, tuple)):
+            if len(value) != len(structures):
+                raise ValueError(f"{name} must have one entry per structure")
+            return list(value)
+        return [value] * len(structures)
+
+    cuts = per_input(cleave, "cleave")
+    cls_flags = per_input(exclude_cls, "exclude_cls")
+    eos_flags = per_input(exclude_eos, "exclude_eos")
+    for i, (structure, embedding) in enumerate(zip(structures, embeddings)):
+        if not isinstance(structure, (str, PathLike)) or not fspath(structure):
+            raise ValueError("Each structure must be a nonempty file path")
+        if not isinstance(embedding, (str, PathLike)) or not fspath(embedding):
+            raise ValueError("Each emb_path must be a nonempty .pt file path")
+        structures[i], embeddings[i] = Path(structure), Path(embedding)
+        if structures[i].suffix not in (".pdb", ".cif", ".dssp"):
+            raise ValueError("Structure files must end in .pdb, .cif or .dssp")
+        if embeddings[i].suffix != ".pt":
+            raise ValueError("Embedding paths must end in .pt")
+        if not structures[i].is_file():
+            raise FileNotFoundError(structures[i])
+        if embeddings[i].exists() and not embeddings[i].is_file():
+            raise ValueError(f"Embedding path is not a file: {embeddings[i]}")
+        nonnegative_int(cuts[i], "cleave")
+        if type(cls_flags[i]) is not bool or type(eos_flags[i]) is not bool:
+            raise ValueError("exclude_cls and exclude_eos must be boolean")
+    # A shared cache for different structures would silently reuse the wrong protein.
+    if len({path.resolve() for path in embeddings}) != len(embeddings):
+        raise ValueError("Each structure must have a distinct emb_path")
+    if any(model is None for model in (heiwa_model, heiwa_orthogonalizer, thermo_model)):
+        raise ValueError("All three prediction models are required")
+    if esm3_model is None and any(not path.is_file() for path in embeddings):
+        raise ValueError("esm3_model is required to generate missing embeddings")
+    hw_setting = hw_setting if hw_setting is not None else Hardware_Setting()
+    for structure, embedding, cut in zip(structures, embeddings, cuts):
+        if not embedding.is_file():
+            gen_embed(esm3_model=esm3_model, hw_setting=hw_setting,
+                      inFile=str(structure), cleave=cut, outPath=str(embedding))
+            if not embedding.is_file():
+                raise RuntimeError(f"gen_embed did not create {embedding}")
+    return predict_thermo(
+        heiwa_model=heiwa_model, heiwa_orthogonalizer=heiwa_orthogonalizer,
+        thermo_model=thermo_model, in_path=[str(path) for path in embeddings],
+        out_folder=out_folder, hw_setting=hw_setting,
+        exclude_cls=cls_flags, exclude_eos=eos_flags,
+    )

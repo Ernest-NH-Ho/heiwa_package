@@ -13,7 +13,7 @@ def get_index(title:str):
     idx["Y-CA"] = (title.find("Y-CA")-2, title.find("Y-CA")+4)
     idx["Z-CA"] = (title.find("Z-CA")-2, title.find("Z-CA")+4)
     return idx
-
+    
 def readDSSP(
     filename: str, 
     cleave: int=0, 

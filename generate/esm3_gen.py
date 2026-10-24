@@ -99,14 +99,13 @@ def generate_proteins(
     assert out_file_name
     single_source(inFile, protein)
     nonnegative_int(cleave, "cleave")
-    if heiwa_model:
-        assert heiwa_orthogonalizer
+    assert (heiwa_model is None) == (heiwa_orthogonalizer is None), \
+        "heiwa_model and heiwa_orthogonalizer must both be supplied or both be None"
         
     if task == "gen_embed":
         out_file_type="pt"
         real_tracks = tracks[:-1]
     else:
-        assert heiwa_model and heiwa_orthogonalizer
         assert seq_prompt is not None or (crit_resi is not None and idx_style is not None)
         out_file_type="pdb"
         real_tracks = tracks

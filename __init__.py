@@ -37,5 +37,5 @@ del _install_esm_backend
 
 from .loaders.model_loader import load_solv_encoder, load_thermo
 from .hardware import Hardware_Setting
-from .predict import predict
+from .predict import predict, predict_thermo
 from .generate.generate import de_novo, gen_embed
